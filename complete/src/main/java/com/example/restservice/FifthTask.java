@@ -3,9 +3,18 @@ package com.example.restservice;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Map;
+import java.util.Set;
 
+import org.apache.commons.math3.linear.ArrayRealVector;
+import org.apache.commons.math3.linear.RealVector;
 import org.apache.lucene.analysis.Analyzer;
 import org.apache.lucene.analysis.core.LowerCaseFilterFactory;
 import org.apache.lucene.analysis.custom.CustomAnalyzer;
@@ -16,6 +25,9 @@ import org.apache.lucene.index.IndexOptions;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.index.Terms;
+import org.apache.lucene.index.TermsEnum;
 import org.apache.lucene.queryparser.classic.ParseException;
 import org.apache.lucene.queryparser.classic.QueryParser;
 import org.apache.lucene.search.IndexSearcher;
@@ -25,12 +37,20 @@ import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.similarities.BM25Similarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
+import org.apache.lucene.util.BytesRef;
+
+import au.com.bytecode.opencsv.CSVWriter;
+import weka.clusterers.SimpleKMeans;
+import weka.core.Instances;
+import weka.core.converters.ArffSaver;
+import weka.core.converters.CSVLoader;
+
 import org.apache.lucene.document.Field;
 import org.apache.lucene.document.FieldType;
 
 public class FifthTask {
 
-    public static final String FILES_TO_INDEX_DIRECTORY = "C:\\Users\\halee\\Downloads\\bigman\\a";
+    //public static final String FILES_TO_INDEX_DIRECTORY = "C:\\Users\\moaya\\Downloads\\P05_additional_resources\\a";
 
     static int docnum=0;
     static FieldType Main=new FieldType();
@@ -38,6 +58,30 @@ public class FifthTask {
     static Directory index;
     static String pathRead;
     static String pathWrite;
+    static IndexSearcher searcher;
+    static IndexReader reader;
+    static int[] docsid;
+
+
+
+
+
+
+    private static Set<String> terms = new HashSet<>();
+    private static RealVector v1=null;
+    private static RealVector v2=null;
+    private static RealVector v3=null;
+    private static RealVector v4=null;
+    private static RealVector v5=null;
+    private static RealVector v6=null;
+    private static RealVector v7=null;
+    private static RealVector v8=null;
+    private static RealVector v9=null;
+    private static RealVector v10=null;
+
+
+
+
 
     private static void addDoc(IndexWriter w, String content, String titel) throws IOException {
         Document doc = new Document();
@@ -89,6 +133,14 @@ public class FifthTask {
         return writer;
     }
 
+    public static void clearDirectory() {
+
+        File dir = new File(pathWrite);
+        File[] files = dir.listFiles();
+        for(File file: files)
+            file.delete();
+    }
+
 
     public static void addFilesToIndex(IndexWriter writer) throws IOException {
         File dir = new File(pathRead);
@@ -119,10 +171,7 @@ public class FifthTask {
     }
 
     public static void reIndex(Analyzer analyzer, String path) throws IOException {
-        File dir = new File(pathWrite);
-        File[] files = dir.listFiles();
-        for(File file: files)
-            file.delete();
+        clearDirectory();
 
         setDirectory(path, pathRead);
         IndexWriter writer = CreateWriter(analyzer);
@@ -130,30 +179,32 @@ public class FifthTask {
 
     }
 
-    public static void query(Analyzer analyzer,String querys,int x) throws IOException, ParseException {
-        IndexReader reader = DirectoryReader.open(index);	//reader to read the index
+
+    public static int[] query(Analyzer analyzer,String querys) throws IOException, ParseException {
 
 
+        reader = DirectoryReader.open(index);	//reader to read the index
 
-        IndexSearcher searcher = new IndexSearcher(reader);
+        searcher = new IndexSearcher(reader);
         searcher.setSimilarity(new BM25Similarity());
         String queryString = querys;
         //from user
         QueryParser parser = new QueryParser("Main", analyzer);
         Query query = parser.parse(queryString);
 
-        TopScoreDocCollector docCollcetor = TopScoreDocCollector.create(x);
+        TopScoreDocCollector docCollcetor = TopScoreDocCollector.create(10);
         searcher.search(query, docCollcetor);
         System.out.println("ranking: ");
 
         ScoreDoc[] docs = docCollcetor.topDocs().scoreDocs;
-        for (int j = 0; j < docs.length && j < x; j++) {
+        int[] docsid=new int[10];
+        for (int j = 0; j < docs.length && j < 10; j++) {
             Document docu = searcher.doc(docs[j].doc);
-            System.out.println("<"+ docs[j].score+ ">"+" : "+ "<"+ docu.get("Main")+">");
+            docsid[j]=docs[j].doc;
+            System.out.println("<"+ docs[j].score+ ">"+" : "+ "<"+ docu.get("Topic")+">");
         }
-
-        reader.close();
-
+        //reader.close();
+        return docsid;
 
 
         /*
@@ -164,12 +215,12 @@ public class FifthTask {
          */
     }
 
-    public static void main(String[] args) throws IOException, ParseException {
+    public static void main(String[] args) throws Exception {
         //from here
 
         Analyzer analyzer=analyzer();
         setDirectory("C:\\Users\\halee\\Downloads\\bigman\\b", "C:\\Users\\halee\\Downloads\\bigman\\a");
-//from user
+//from user (dir or ram) but also default
         IndexWriter writer = CreateWriter(analyzer);
 
 
@@ -180,18 +231,272 @@ public class FifthTask {
 
 
 
-        //reIndex(analyzer,"C:\\Users\\moaya\\Downloads\\P05_additional_resources\\b"); //if user wants (1st crwling using python with add files and then tthis with reindex) //path is also from user
+        //reIndex(analyzer,pathWrite) //"C:\\Users\\moaya\\Downloads\\P05_additional_resources\\b"); //if user wants (1st crwling using python with add files and then tthis with reindex) //path is also from user
 
 
-        String query="Football world cup";
+        // string to be given /***************/
+        String query="player";
 //from user
-        query(analyzer, query,20);
-//number also from user
+        docsid=query(analyzer, query);
+        /*
+         * similiraty score method as parameter
+         *
+         * if BM25 then
+         * else if cosin then
+         */
 
-        File dir = new File(pathWrite);
-        File[] files = dir.listFiles();
-        for(File file: files)
-            file.delete();
-//remove
+
+//remove                     /************/
+        clearDirectory();
+
+//num of clusters from user  /***********/
+        HashMap<String, Integer> clust = cluster(3);
+
+
+        /*clearDirectory();
+      //add but only if user doesnt want to delete*/
+
+
+
+
+
+        //redeiricting with wikipedia/ / / / /topic
+
+        //clustering visualization
+
+        //front back integration
+
+        //add a topic using python
+
+        //docum
+    }
+
+
+
+    static RealVector getTermFrequencies(IndexReader reader, int docId)
+            throws IOException {
+        Terms vector = reader.getTermVector(docId, "Main");
+        double n=reader.getDocCount("Main");
+        TermsEnum termsEnum = null;
+        termsEnum = vector.iterator();
+        Map<String, Integer> frequencies = new HashMap<>();
+        RealVector rvector = new ArrayRealVector(terms.size());
+        BytesRef text = null;
+        ArrayList<Term> v=new ArrayList<Term>();
+        ArrayList<Long> g=new ArrayList<Long>();
+        while ((text = termsEnum.next()) != null) {
+            String term = text.utf8ToString();
+            int freq = (int) termsEnum.totalTermFreq();
+            Term termInstance = new Term("Main", term);
+            frequencies.put(term, freq);
+            v.add(termInstance);
+            g.add(termsEnum.totalTermFreq());
+        }
+        int i = 0;
+        //int j=0;
+        double idf=0.0;
+        double tf=0.0;
+        double tfidf=0.0;
+        for (String term1 : terms) {
+            if(frequencies.containsKey(term1)) {
+                Term termm = new Term("Main", term1);
+                int index=v.indexOf(termm);
+                Term termInstance=v.get(index);
+                tf=g.get(index);
+                double docCount = reader.docFreq(termInstance);
+                double z=n/docCount;
+                idf=Math.log10(z);
+                tfidf=tf*idf;
+            } else {
+                tfidf=0.0;
+            }
+            rvector.setEntry(i++, tfidf);
+        }
+        return rvector;
+    }
+
+
+    static void addTerms(IndexReader reader, int docId) throws IOException {
+        Terms vector = reader.getTermVector(docId, "Main");
+        TermsEnum termsEnum = null;
+        termsEnum = vector.iterator();
+        BytesRef text = null;
+        while ((text = termsEnum.next()) != null) {
+            String term = text.utf8ToString();
+            terms.add(term);
+        }
+    }
+
+
+    public static void createCSV() throws IOException {
+        addTerms(reader, docsid[0]);
+        addTerms(reader, docsid[1]);
+        addTerms(reader, docsid[2]);
+        addTerms(reader, docsid[3]);
+        addTerms(reader, docsid[4]);
+        addTerms(reader, docsid[5]);
+        addTerms(reader, docsid[6]);
+        addTerms(reader, docsid[7]);
+        addTerms(reader, docsid[8]);
+        addTerms(reader, docsid[9]);
+
+
+
+        v1 = getTermFrequencies(reader, docsid[0]);
+        v2 = getTermFrequencies(reader, docsid[1]);
+        v3 = getTermFrequencies(reader, docsid[2]);
+        v4 = getTermFrequencies(reader, docsid[3]);
+        v5 = getTermFrequencies(reader, docsid[4]);
+        v6 = getTermFrequencies(reader, docsid[5]);
+        v7 = getTermFrequencies(reader, docsid[6]);
+        v8 = getTermFrequencies(reader, docsid[7]);
+        v9 = getTermFrequencies(reader, docsid[8]);
+        v10 = getTermFrequencies(reader, docsid[9]);
+
+        double[] arr1 = v1.toArray();
+        double[] arr2 = v2.toArray();
+        double[] arr3 = v3.toArray();
+        double[] arr4 = v4.toArray();
+        double[] arr5 = v5.toArray();
+        double[] arr6 = v6.toArray();
+        double[] arr7 = v7.toArray();
+        double[] arr8 = v8.toArray();
+        double[] arr9 = v9.toArray();
+        double[] arr10 = v10.toArray();
+
+        String s1 = Arrays.toString(arr1);
+        s1=s1.substring(1, s1.length()-1);
+        String[] ss1 = s1.split(", ");
+
+        String s2 = Arrays.toString(arr2);
+        s2=s2.substring(1, s2.length()-1);
+        String[] ss2 = s2.split(", ");
+
+        String s3 = Arrays.toString(arr3);
+        s3=s3.substring(1, s3.length()-1);
+        String[] ss3 = s3.split(", ");
+
+        String s4 = Arrays.toString(arr4);
+        s4=s4.substring(1, s4.length()-1);
+        String[] ss4 = s4.split(", ");
+
+        String s5 = Arrays.toString(arr5);
+        s5=s5.substring(1, s5.length()-1);
+        String[] ss5 = s5.split(", ");
+
+        String s6 = Arrays.toString(arr6);
+        s6=s6.substring(1, s6.length()-1);
+        String[] ss6 = s6.split(", ");
+
+        String s7 = Arrays.toString(arr7);
+        s7=s7.substring(1, s7.length()-1);
+        String[] ss7 = s7.split(", ");
+
+        String s8 = Arrays.toString(arr8);
+        s8=s8.substring(1, s8.length()-1);
+        String[] ss8 = s8.split(", ");
+
+        String s9 = Arrays.toString(arr9);
+        s9=s9.substring(1, s9.length()-1);
+        String[] ss9 = s9.split(", ");
+
+        String s10 = Arrays.toString(arr10);
+        s10=s10.substring(1, s10.length()-1);
+        String[] ss10 = s10.split(", ");
+
+
+
+
+
+
+        File file2 = new File(pathWrite+"\\test.csv");
+        try {
+            // create FileWriter object with file as parameter
+            FileWriter outputfile = new FileWriter(file2);
+
+            // create CSVWriter object filewriter object as parameter
+            CSVWriter writer2 = new CSVWriter(outputfile);
+
+            // adding header to csv
+            String[] header = new String[ss1.length];
+            int a=0;
+            for(int i=0;i<header.length;i++) {
+                a=a+1;
+                header[i]=String.valueOf(a);
+            }
+            writer2.writeNext(header);
+
+            writer2.writeNext(ss1);
+            writer2.writeNext(ss2);
+            writer2.writeNext(ss3);
+            writer2.writeNext(ss4);
+            writer2.writeNext(ss5);
+            writer2.writeNext(ss6);
+            writer2.writeNext(ss7);
+            writer2.writeNext(ss8);
+            writer2.writeNext(ss9);
+            writer2.writeNext(ss10);
+
+
+
+            // closing writer connection
+            writer2.close();
+        }
+        catch (IOException e) {
+
+            e.printStackTrace();
+        }
+
+
+
+
+
+
+        CSVLoader loader = new CSVLoader();
+        loader.setSource(new File(pathWrite+"\\test.csv"));
+        Instances data = loader.getDataSet();
+
+        // save ARFF
+        ArffSaver saver = new ArffSaver();
+        saver.setInstances(data);
+        saver.setFile(new File(pathWrite+"\\tests.arff"));
+        saver.writeBatch();
+    }
+
+
+
+    public static HashMap<String, Integer> cluster(int x) throws Exception {
+        createCSV();
+        BufferedReader breader = null;
+        breader = new BufferedReader(new FileReader(
+                pathWrite+"\\tests.arff"));
+        Instances Train = new Instances(breader);
+        //Train.setClassIndex(Train.numAttributes() - 1); // comment out this line
+        SimpleKMeans kMeans = new SimpleKMeans();
+        kMeans.setSeed(10);
+        kMeans.setPreserveInstancesOrder(true);
+        kMeans.setNumClusters(x);
+        kMeans.buildClusterer(Train);
+        int[] assignments = kMeans.getAssignments();
+        int i2 = 0;
+        HashMap<String, Integer> clust = new HashMap<>();
+        for (int clusterNum : assignments) {
+//            System.out.printf("Instance %d -> Cluster %d", i2, clusterNum);
+
+            Document docu = searcher.doc(docsid[i2]);
+            clust.put(docu.get("Topic"), clusterNum);
+
+            i2++;
+        }
+        breader.close();
+
+        for (String name: clust.keySet()) {
+            String key = name.toString();
+            String value = clust.get(name).toString();
+            System.out.println(key + " " + value);
+        }
+
+        reader.close();
+        return clust;
     }
 }
