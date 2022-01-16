@@ -16,8 +16,11 @@ import java.util.Set;
 import org.apache.commons.math3.linear.ArrayRealVector;
 import org.apache.commons.math3.linear.RealVector;
 import org.apache.lucene.analysis.Analyzer;
+import org.apache.lucene.analysis.CharArraySet;
 import org.apache.lucene.analysis.core.LowerCaseFilterFactory;
 import org.apache.lucene.analysis.custom.CustomAnalyzer;
+import org.apache.lucene.analysis.en.EnglishAnalyzer;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.analysis.standard.StandardTokenizerFactory;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.DirectoryReader;
@@ -35,6 +38,9 @@ import org.apache.lucene.search.Query;
 import org.apache.lucene.search.ScoreDoc;
 import org.apache.lucene.search.TopScoreDocCollector;
 import org.apache.lucene.search.similarities.BM25Similarity;
+import org.apache.lucene.search.similarities.ClassicSimilarity;
+import org.apache.lucene.search.similarities.Similarity;
+import org.apache.lucene.search.similarities.TFIDFSimilarity;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.FSDirectory;
 import org.apache.lucene.util.BytesRef;
@@ -61,6 +67,15 @@ public class FifthTask {
     static IndexSearcher searcher;
     static IndexReader reader;
     static int[] docsid;
+    static HashMap<String, Integer> clust;
+    static ArrayList<String> clust1 = new ArrayList<>();
+    static ArrayList<String> clust2 = new ArrayList<>();
+    static ArrayList<String> clust3 = new ArrayList<>();
+    static ArrayList<String> clust4 = new ArrayList<>();
+    static ArrayList<String> clust5 = new ArrayList<>();
+    static Similarity simType;
+    static Analyzer analyzer;
+
 
 
 
@@ -103,18 +118,20 @@ public class FifthTask {
 
 
     public static Analyzer analyzer() throws IOException {
-        Analyzer analyzer = CustomAnalyzer.builder()
-                .withTokenizer(StandardTokenizerFactory.class)
-                .addTokenFilter(LowerCaseFilterFactory.class)
-//                .addTokenFilter("stop", "ignoreCase", "false", "words", "stopwords.txt", "format", "wordset")
-                .addTokenFilter("porterstem")
-                .build();
+         analyzer = new EnglishAnalyzer();
         /*
-         * add config as parameter
-         *
-         * if stem then
-         * else if lower then
-         */
+		 * add config as parameter
+		 *
+		 * if stem then
+		 * else if lower then
+		 * 		Analyzer analyzer = CustomAnalyzer.builder()
+				.withTokenizer(StandardTokenizerFactory.class)
+                .addTokenFilter(LowerCaseFilterFactory.class)
+                .addTokenFilter("stop", "ignoreCase", "false", "words", "stopwords.txt", "format", "wordset")
+				.addTokenFilter("porterstem")
+                .build();
+
+		 */
         return analyzer;
     }
 
@@ -128,6 +145,8 @@ public class FifthTask {
         //index = new RAMDirectory();
 
         IndexWriterConfig config = new IndexWriterConfig(analyzer);
+        config.setSimilarity(simType);
+        //config.setSimilarity(new ClassicSimilarity());
         IndexWriter writer = new IndexWriter(index, config); // making IndexWriter to add document to the index
 
         return writer;
@@ -182,11 +201,17 @@ public class FifthTask {
 
     public static int[] query(Analyzer analyzer,String querys) throws IOException, ParseException {
 
+        clust1.clear();
+        clust2.clear();
+        clust3.clear();
+        clust4.clear();
+        clust5.clear();
 
         reader = DirectoryReader.open(index);	//reader to read the index
 
         searcher = new IndexSearcher(reader);
-        searcher.setSimilarity(new BM25Similarity());
+        searcher.setSimilarity(simType);
+        //searcher.setSimilarity(new ClassicSimilarity());
         String queryString = querys;
         //from user
         QueryParser parser = new QueryParser("Main", analyzer);
@@ -194,14 +219,14 @@ public class FifthTask {
 
         TopScoreDocCollector docCollcetor = TopScoreDocCollector.create(10);
         searcher.search(query, docCollcetor);
-        System.out.println("ranking: ");
+        //System.out.println("ranking: ");
 
         ScoreDoc[] docs = docCollcetor.topDocs().scoreDocs;
         int[] docsid=new int[10];
         for (int j = 0; j < docs.length && j < 10; j++) {
-            Document docu = searcher.doc(docs[j].doc);
+//            Document docu = searcher.doc(docs[j].doc);
             docsid[j]=docs[j].doc;
-            System.out.println("<"+ docs[j].score+ ">"+" : "+ "<"+ docu.get("Topic")+">");
+//            System.out.println("<"+ docs[j].score+ ">"+" : "+ "<"+ docu.get("Topic")+">");
         }
         //reader.close();
         return docsid;
@@ -215,11 +240,50 @@ public class FifthTask {
          */
     }
 
+    public static void setSimType(String s) {
+        if (s == "BM25") {
+            simType = new BM25Similarity();
+        } else {
+            simType = new ClassicSimilarity();
+        }
+    }
+
+    // IMPORTANT PAGE
+    public static ArrayList<ArrayList<String>> clusterFront(String query,int x) throws Exception {
+
+//from user
+        docsid=query(analyzer, query);
+
+        if(x<2||x>5) {
+            x=2;
+        }
+
+        cluster(x);
+        ArrayList<ArrayList<String>> z = new ArrayList();
+        z.add(clust1);
+        z.add(clust2);
+        z.add(clust3);
+        z.add(clust4);
+        z.add(clust5);
+        return z;
+    }
+
+    public static void button1continue(String s1, String s2) throws IOException {
+        Analyzer analyzer=analyzer();
+        setDirectory(s1, s2);
+        setSimType("BM25");
+        clearDirectory();
+        IndexWriter writer = CreateWriter(analyzer);
+        addFilesToIndex(writer);
+
+    }
     public static void main(String[] args) throws Exception {
         //from here
-
         Analyzer analyzer=analyzer();
         setDirectory("C:\\Users\\halee\\Downloads\\bigman\\b", "C:\\Users\\halee\\Downloads\\bigman\\a");
+        setSimType("BM25");
+        clearDirectory();
+
 //from user (dir or ram) but also default
         IndexWriter writer = CreateWriter(analyzer);
 
@@ -231,10 +295,9 @@ public class FifthTask {
 
 
 
-        //reIndex(analyzer,pathWrite) //"C:\\Users\\moaya\\Downloads\\P05_additional_resources\\b"); //if user wants (1st crwling using python with add files and then tthis with reindex) //path is also from user
+        //reIndex(analyzer,pathWrite); //if user wants (1st crwling using python with add files and then tthis with reindex) //path is also from user
 
 
-        // string to be given /***************/
         String query="player";
 //from user
         docsid=query(analyzer, query);
@@ -245,30 +308,27 @@ public class FifthTask {
          * else if cosin then
          */
 
+        int x=3;
 
-//remove                     /************/
-        clearDirectory();
+        if(x<2||x>5) {
+            x=2;
+        }
 
-//num of clusters from user  /***********/
-        HashMap<String, Integer> clust = cluster(3);
-
-
-        /*clearDirectory();
-      //add but only if user doesnt want to delete*/
+        cluster(x);  //shows the clusters
+//num of clusters from user
 
 
+        int y=1;
+        listCluster(y);
+
+        clearDirectory();//remove
 
 
+        reader.close();
 
-        //redeiricting with wikipedia/ / / / /topic
 
-        //clustering visualization
+        //if a name was clicked then edirect to ("https://en.wikipedia.org/wiki/" + name.replaceAll("\\s","_"))
 
-        //front back integration
-
-        //add a topic using python
-
-        //docum
     }
 
 
@@ -465,7 +525,7 @@ public class FifthTask {
 
 
 
-    public static HashMap<String, Integer> cluster(int x) throws Exception {
+    public static void cluster(int x) throws Exception {
         createCSV();
         BufferedReader breader = null;
         breader = new BufferedReader(new FileReader(
@@ -479,9 +539,9 @@ public class FifthTask {
         kMeans.buildClusterer(Train);
         int[] assignments = kMeans.getAssignments();
         int i2 = 0;
-        HashMap<String, Integer> clust = new HashMap<>();
+        clust = new HashMap<>();
         for (int clusterNum : assignments) {
-//            System.out.printf("Instance %d -> Cluster %d", i2, clusterNum);
+            //System.out.printf("Instance %d -> Cluster %d", i2, clusterNum);
 
             Document docu = searcher.doc(docsid[i2]);
             clust.put(docu.get("Topic"), clusterNum);
@@ -489,14 +549,75 @@ public class FifthTask {
             i2++;
         }
         breader.close();
-
+        /*
         for (String name: clust.keySet()) {
             String key = name.toString();
             String value = clust.get(name).toString();
             System.out.println(key + " " + value);
         }
+        */
 
-        reader.close();
-        return clust;
+        for (String name: clust.keySet()) {
+            String key = name.toString();
+            int value = clust.get(name);
+            if(value==0) {
+                clust1.add(key);
+            }else if(value==1) {
+                clust2.add(key);
+            }else if(value==2) {
+                clust3.add(key);
+            }else if(value==3){
+                clust4.add(key);
+            }else if(value==4) {
+                clust5.add(key);
+            }
+        }
+
     }
+
+    public static ArrayList<String> listCluster(int y) throws IOException {
+        ArrayList<String> z = new ArrayList<>();
+        if(y==1) {//clust1 was clicked
+            for(int id: docsid) {//list them
+                String name = searcher.doc(id).get("Topic");
+                if(clust1.contains(name)) {
+                    z.add(name);
+                }
+            }
+            return z;
+        }else if(y==2) {
+            for(int id: docsid) {//list them
+                String name = searcher.doc(id).get("Topic");
+                if(clust2.contains(name)) {
+                    z.add(name);
+                }
+            }
+            return z;
+        }else if(y==3) {
+            for(int id: docsid) {//list them
+                String name = searcher.doc(id).get("Topic");
+                if(clust3.contains(name)) {
+                    z.add(name);
+                }
+            }
+            return z;
+        }else if(y==4) {
+            for(int id: docsid) {//list them
+                String name = searcher.doc(id).get("Topic");
+                if(clust4.contains(name)) {
+                    z.add(name);
+                }
+            }
+            return z;
+        }else if(y==5) {
+            for(int id: docsid) {//list them
+                String name = searcher.doc(id).get("Topic");
+                if(clust5.contains(name)) {
+                    z.add(name);
+                }
+            }
+        }
+        return z;
+    }
+
 }

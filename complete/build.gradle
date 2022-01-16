@@ -21,6 +21,7 @@ dependencies {
 	implementation 'nz.ac.waikato.cms.weka:weka-stable:3.8.5'
 	implementation 'au.com.bytecode:opencsv:2.4'
 	testImplementation('org.springframework.boot:spring-boot-starter-test')
+	testImplementation 'org.apache.httpcomponents:httpclient'
 }
 
 test {
